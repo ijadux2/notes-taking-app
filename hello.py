@@ -242,6 +242,145 @@ class NoteTakerPro:
     # would be similar to the previous version but with the new fields included
     # [...] (truncated for brevity - these would be included in actual file)
 
+    def list_notes(self):
+        """List all notes"""
+        if not self.notes:
+            print(Fore.YELLOW + "No notes available.")
+            return
+        print(Fore.YELLOW + "\nALL NOTES")
+        for note in self.notes:
+            print(f"ID: {note['id']} | Title: {note['title']} | Tags: {', '.join(note['tags'])} | Created: {note['created']} | Modified: {note['modified']}")
+
+    def view_note(self):
+        """View a specific note"""
+        try:
+            note_id = int(input(Fore.CYAN + "Enter note ID to view: " + Style.RESET_ALL))
+        except ValueError:
+            print(Fore.RED + "Invalid note ID!")
+            return
+        note = next((n for n in self.notes if n['id'] == note_id), None)
+        if not note:
+            print(Fore.RED + "Note not found!")
+            return
+        print(Fore.YELLOW + f"\nNOTE ID {note_id}")
+        print(Fore.CYAN + f"Title: {note['title']}")
+        print(f"Content:\n{note['content']}")
+        print(f"Tags: {', '.join(note['tags'])}")
+        print(f"Created: {note['created']}")
+        print(f"Modified: {note['modified']}")
+        if note.get('reminder'):
+            print(f"Reminder: {note['reminder']}")
+
+    def edit_note(self):
+        """Edit an existing note"""
+        try:
+            note_id = int(input(Fore.CYAN + "Enter note ID to edit: " + Style.RESET_ALL))
+        except ValueError:
+            print(Fore.RED + "Invalid note ID!")
+            return
+        note = next((n for n in self.notes if n['id'] == note_id), None)
+        if not note:
+            print(Fore.RED + "Note not found!")
+            return
+        
+        print(Fore.YELLOW + f"\nEDIT NOTE ID {note_id}")
+        new_title = input(Fore.CYAN + f"New Title (leave blank to keep '{note['title']}'): " + Style.RESET_ALL)
+        new_content = input(Fore.CYAN + f"New Content (leave blank to keep current content): " + Style.RESET_ALL)
+        new_tags_input = input(Fore.CYAN + f"New Tags (comma separated, leave blank to keep current tags): " + Style.RESET_ALL)
+        
+        if new_title.strip():
+            note['title'] = new_title.strip()
+        if new_content.strip():
+            note['content'] = new_content.strip()
+        if new_tags_input.strip():
+            note['tags'] = [tag.strip() for tag in new_tags_input.split(",") if tag.strip()]
+        
+        note['modified'] = datetime.now(pytz.timezone(self.config['timezone'])).isoformat()
+        
+        self.save_notes()
+        print(Fore.GREEN + "Note updated successfully!")
+
+    def delete_note(self):
+        """Delete a note"""
+        try:
+            note_id = int(input(Fore.CYAN + "Enter note ID to delete: " + Style.RESET_ALL))
+        except ValueError:
+            print(Fore.RED + "Invalid note ID!")
+            return
+        note = next((n for n in self.notes if n['id'] == note_id), None)
+        if not note:
+            print(Fore.RED + "Note not found!")
+            return
+        
+        confirm = input(Fore.RED + f"Are you sure you want to delete note '{note['title']}'? (y/n): " + Style.RESET_ALL)
+        if confirm.lower() == 'y':
+            self.notes = [n for n in self.notes if n['id'] != note_id]
+            self.save_notes()
+            print(Fore.GREEN + "Note deleted successfully!")
+        else:
+            print(Fore.YELLOW + "Delete cancelled.")
+
+    def search_notes(self):
+        """Search notes by keyword in title, content, or tags"""
+        keyword = input(Fore.CYAN + "Enter keyword to search: " + Style.RESET_ALL).lower()
+        results = []
+        for note in self.notes:
+            if (keyword in note['title'].lower() or
+                keyword in note['content'].lower() or
+                any(keyword in tag.lower() for tag in note['tags'])):
+                results.append(note)
+        if not results:
+            print(Fore.YELLOW + "No matching notes found.")
+            return
+        print(Fore.YELLOW + f"\nSEARCH RESULTS ({len(results)} found):")
+        for note in results:
+            print(f"ID: {note['id']} | Title: {note['title']} | Tags: {', '.join(note['tags'])} | Created: {note['created']} | Modified: {note['modified']}")
+
+    def settings_menu(self):
+        """Settings menu for encryption, cloud sync, timezone, and Dropbox token"""
+        while True:
+            print(Fore.YELLOW + "\nSETTINGS")
+            print(Fore.CYAN + "1. Toggle Encryption (Currently: " + ("ON" if self.config['encrypted'] else "OFF") + ")")
+            print("2. Toggle Cloud Sync (Currently: " + ("ON" if self.config['cloud_sync'] else "OFF") + ")")
+            print("3. Set Timezone (Currently: " + self.config['timezone'] + ")")
+            print("4. Set Dropbox Token")
+            print("5. Back to Main Menu")
+            
+            choice = input(Fore.CYAN + "Enter your choice (1-5): " + Style.RESET_ALL)
+            if choice == '1':
+                self.config['encrypted'] = not self.config['encrypted']
+                self.setup_encryption()
+                self.save_config()
+                print(Fore.GREEN + "Encryption toggled. Please restart the app for changes to take effect.")
+            elif choice == '2':
+                self.config['cloud_sync'] = not self.config['cloud_sync']
+                if self.config['cloud_sync']:
+                    self.setup_dropbox()
+                else:
+                    self.dbx = None
+                self.save_config()
+                print(Fore.GREEN + "Cloud sync toggled.")
+            elif choice == '3':
+                tz = input(Fore.CYAN + "Enter timezone (e.g. UTC, US/Eastern): " + Style.RESET_ALL)
+                try:
+                    pytz.timezone(tz)  # Validate timezone
+                    self.config['timezone'] = tz
+                    self.save_config()
+                    print(Fore.GREEN + f"Timezone set to {tz}.")
+                except pytz.UnknownTimeZoneError:
+                    print(Fore.RED + "Invalid timezone!")
+            elif choice == '4':
+                token = getpass(Fore.CYAN + "Enter Dropbox token: " + Style.RESET_ALL)
+                self.config['dropbox_token'] = token
+                self.save_config()
+                if self.config['cloud_sync']:
+                    self.setup_dropbox()
+                print(Fore.GREEN + "Dropbox token updated.")
+            elif choice == '5':
+                break
+            else:
+                print(Fore.RED + "Invalid choice. Please enter a number between 1 and 5.")
+
     def show_menu(self):
         """Display the main menu"""
         print(Fore.YELLOW + "\nNOTE TAKER PRO")
@@ -296,6 +435,7 @@ class NoteTakerPro:
                     print(Fore.RED + "\nInvalid choice. Please enter a number between 1 and 11.")
             except ValueError:
                 print(Fore.RED + "\nInvalid input. Please enter a number.")
+
 
 if __name__ == "__main__":
     app = NoteTakerPro()
