@@ -1,10 +1,6 @@
 Here's a comprehensive `README.md` file for the Note Taker Pro CLI application:
 
 ```markdown
-# Note Taker Pro - CLI Edition
-
-![Note Taker Pro Logo](https://placehold.co/600x200?text=Note+Taker+Pro+CLI)
-
 A powerful command-line note-taking application with encryption, cloud sync, reminders, and export capabilities.
 
 ## Features
